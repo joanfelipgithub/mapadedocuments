@@ -1,6 +1,15 @@
 javascript:(function clickeduMain() {
   // Nom de la clau a localStorage
   const FLAG_NAME = 'clickeduBuildOverlay'; 
+  // Clau general per guardar la configuració de documents personalitzats
+  const CONFIG_KEY = 'clickeduDocConfigs';
+    
+    // --- Colors per Defecte ---
+    const DEFAULT_BG = '#93C81C';
+    const DEFAULT_TEXT = '#013365';
+    
+    // Carrega la configuració de colors i favorits de localStorage
+    let docConfigs = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
 
   // --- 1. Neteja Inicial / Toggle (Primer Clic) ---
   const EXIST = document.getElementById("clickeduMapContainer");
@@ -14,24 +23,17 @@ javascript:(function clickeduMain() {
   console.log("⏳ Mapa ClickEdu: inicialitzant…");
 
 // ----------------------------------------------------------------------
-// --- Funció Principal: Construeix la Superposició a partir dels Resultats ---
+// --- FUNCIONS UTILITÀRIES ---
 // ----------------------------------------------------------------------
 
-    // NOU: Funció per determinar la luminositat del color (per triar blanc o negre)
-    function getLuminosity(hex) {
-        // Converteix hex en r, g, b (0-255)
-        const r = parseInt(hex.substring(1, 3), 16);
-        const g = parseInt(hex.substring(3, 5), 16);
-        const b = parseInt(hex.substring(5, 7), 16);
-        
-        // Calcula la luminositat relativa (ITU-R BT.709 - una formula comuna)
-        const luminosity = (0.2126 * r) + (0.7152 * g) + (0.0722 * b); 
-        
-        // El llindar 150 (d'un màxim de 255) s'utilitza habitualment per a contrast
-        return luminosity > 150 ? 'black' : 'white';
+    // Funció per guardar la configuració actual
+    function saveConfigs() {
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(docConfigs));
     }
 
-
+// ----------------------------------------------------------------------
+// --- Funció Principal: Construeix la Superposició a partir dels Resultats ---
+// ----------------------------------------------------------------------
   function buildOverlay() {
     // Comprova si la superposició ja s'ha construït (important per l'Observer)
     if (document.getElementById("clickeduMapContainer")) {
@@ -74,6 +76,8 @@ javascript:(function clickeduMain() {
     const cats = ["EAFP","EA","GA","POC","GRL","GQ","EAESO","PO","GC","EABAT","SOR","Gestio","GRH"];
     const catMap = {};
     cats.push("Altres");
+    // Afegim una categoria especial per als favorits
+    catMap["❤️ Favorits"] = []; 
     cats.forEach(c => catMap[c] = []);
     
     const uniqueUrls = new Map(); 
@@ -93,8 +97,108 @@ javascript:(function clickeduMain() {
       const m = t.match(/_(.*?)_/);
       let cat = "Altres";
       if (m && cats.includes(m[1])) cat = m[1];
-      catMap[cat].push({ element: a, text: t });
+      
+      const docData = { element: a, text: t };
+
+      catMap[cat].push(docData);
+      
+      // Si el document és favorit, també l'afegim a la llista de Favorits
+      if (docConfigs[t] && docConfigs[t].favorite) {
+          catMap["❤️ Favorits"].push(docData);
+      }
     });
+    
+    // --------------------------------------------------
+    // --- FUNCIÓ DE CREACIÓ DEL MENÚ CONTEXTUAL ---
+    // --------------------------------------------------
+    function createContextMenu(btnElement, text, docData) {
+        const menu = document.createElement('div');
+        Object.assign(menu.style, {
+            position: 'fixed',
+            background: 'white',
+            border: '1px solid #ccc',
+            padding: '5px',
+            boxShadow: '2px 2px 5px rgba(0,0,0,0.2)',
+            zIndex: '1000000',
+            display: 'none',
+            flexDirection: 'column',
+            cursor: 'pointer'
+        });
+        document.body.appendChild(menu);
+
+        function hideMenu() {
+            menu.style.display = 'none';
+        }
+        
+        document.addEventListener('click', hideMenu);
+        // Evita tancar el menú si es fa clic dret sobre ell mateix (o un altre botó)
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target !== btnElement) hideMenu();
+        });
+
+        const isFav = docConfigs[text] && docConfigs[text].favorite;
+        const favText = isFav ? "💔 Eliminar de Favorits" : "❤️ Afegir a Favorits";
+        
+        // Opció 1: Favorits
+        const favItem = document.createElement('div');
+        Object.assign(favItem.style, { padding: '5px 10px' });
+        favItem.textContent = favText;
+        favItem.onmouseover = () => favItem.style.background = '#eee';
+        favItem.onmouseout = () => favItem.style.background = 'white';
+        favItem.onclick = () => {
+            docConfigs[text] = docConfigs[text] || {};
+            docConfigs[text].favorite = !isFav;
+            saveConfigs();
+            alert(`"${text.match(/^[^ _]+/)[0]}" ${isFav ? 'eliminat' : 'afegit'} a Favorits. Recarrega l'Overlay per actualitzar.`);
+            hideMenu();
+        };
+        menu.appendChild(favItem);
+
+        // Opció 2: Canviar Fons
+        const bgItem = document.createElement('div');
+        Object.assign(bgItem.style, { padding: '5px 10px' });
+        bgItem.textContent = "🎨 Canviar Color Fons";
+        bgItem.onmouseover = () => bgItem.style.background = '#eee';
+        bgItem.onmouseout = () => bgItem.style.background = 'white';
+        bgItem.onclick = () => {
+            const newColor = prompt("Introdueix el nou color de fons (HEX, e.g. #FF0000):", btnElement.style.backgroundColor);
+            // Comprovació simple de format HEX (opcionalment, es podria fer una validació més estricta)
+            if (newColor && /^#[0-9A-F]{6}$/i.test(newColor)) {
+                btnElement.style.background = newColor;
+                docConfigs[text] = docConfigs[text] || {};
+                docConfigs[text].background = newColor;
+                saveConfigs();
+            } else if (newColor !== null) {
+                alert("Format de color no vàlid. Utilitza #RRGGBB.");
+            }
+            hideMenu();
+        };
+        menu.appendChild(bgItem);
+        
+        // Opció 3: Canviar Lletres
+        const textColorItem = document.createElement('div');
+        Object.assign(textColorItem.style, { padding: '5px 10px' });
+        textColorItem.textContent = "🅰️ Canviar Color Lletres";
+        textColorItem.onmouseover = () => textColorItem.style.background = '#eee';
+        textColorItem.onmouseout = () => textColorItem.style.background = 'white';
+        textColorItem.onclick = () => {
+            const newColor = prompt("Introdueix el nou color de lletres (HEX, e.g. #000000):", btnElement.style.color);
+            if (newColor && /^#[0-9A-F]{6}$/i.test(newColor)) {
+                btnElement.style.color = newColor;
+                docConfigs[text] = docConfigs[text] || {};
+                docConfigs[text].color = newColor;
+                saveConfigs();
+            } else if (newColor !== null) {
+                alert("Format de color no vàlid. Utilitza #RRGGBB.");
+            }
+            hideMenu();
+        };
+        menu.appendChild(textColorItem);
+
+        return menu;
+    }
+    // --------------------------------------------------
+
 
     // --- Funció i Listener per Bloquejar Office Viewer (descàrrega directa) ---
     function stripOfficeViewer(u) {
@@ -132,15 +236,18 @@ javascript:(function clickeduMain() {
     Object.keys(catMap).forEach(cat => {
       let list = catMap[cat];
       if (!list.length) return;
-        
-      // ORDENACIÓ: Ordena la llista alfabèticament pel text de l'element
-      list.sort((a, b) => {
-          const textA = a.text.toUpperCase();
-          const textB = b.text.toUpperCase();
-          if (textA < textB) return -1;
-          if (textA > textB) return 1;
-          return 0;
-      });
+      
+      // Ordena per a totes les categories (excepte Favorits, que es manté a dalt)
+      if (cat !== "❤️ Favorits") {
+          list.sort((a, b) => {
+              const textA = a.text.toUpperCase();
+              const textB = b.text.toUpperCase();
+              if (textA < textB) return -1;
+              if (textA > textB) return 1;
+              return 0;
+          });
+      }
+
 
       // Capçalera plegable
       const head = document.createElement("div");
@@ -158,7 +265,7 @@ javascript:(function clickeduMain() {
       // Contenidor de contingut (col·lapsat)
       const content = document.createElement("div");
       Object.assign(content.style, {
-        display: "none",
+        display: (cat === "❤️ Favorits") ? "grid" : "none", // Mostra Favorits per defecte
         gridTemplateColumns: "repeat(3,1fr)",
         gap: "10px",
         marginBottom: "6px"
@@ -177,10 +284,10 @@ javascript:(function clickeduMain() {
         const btn = document.createElement("div");
         btn.innerText = l;
         
-        // Generació de color aleatori
-        const hex = "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-        // Obtenció del color del text basat en la luminositat
-        const textColor = getLuminosity(hex);
+        // Aplica colors personalitzats o per defecte
+        const config = docConfigs[t] || {};
+        const bgColor = config.background || DEFAULT_BG;
+        const textColor = config.color || DEFAULT_TEXT;
         
         Object.assign(btn.style, {
           width: "127px",
@@ -188,8 +295,8 @@ javascript:(function clickeduMain() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: hex, // ÚS DEL COLOR ALEATORI GENERAT
-          color: textColor, // ÚS DEL COLOR DE TEXT DETERMINAT
+          background: bgColor, // Color fix o personalitzat
+          color: textColor, // Color fix o personalitzat
           fontWeight: "bold",
           fontSize: "14px",
           borderRadius: "10px",
@@ -198,11 +305,30 @@ javascript:(function clickeduMain() {
           textAlign: "center",
           overflow: "hidden"
         });
+
+        // Event: Clic esquerre (navegació)
         btn.addEventListener("click", e => { 
           e.stopPropagation(); 
           console.log("🖱️ Clicat:", t);
           a.click(); 
         });
+        
+        // Event: Clic dret (menú contextual)
+        btn.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); // Evita el menú natiu del navegador
+            
+            const existingMenu = document.getElementById('clickeduContextMenu');
+            if (existingMenu) existingMenu.remove();
+            
+            const menu = createContextMenu(btn, t, item);
+            menu.id = 'clickeduContextMenu';
+            
+            // Posiciona el menú just al costat del ratolí
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'flex';
+        });
+
         content.appendChild(btn);
       });
     });
