@@ -16,12 +16,11 @@ javascript:(function clickeduMain() {
 
   // --- Core Function: Builds the Overlay from Results ---
   function buildOverlay() {
-    // Check if the overlay has already been built (important for MutationObserver calls)
+    // Check if the overlay has already been built
     if (document.getElementById("clickeduMapContainer")) {
         return true; 
     }
     
-    // TEMPORARY DEBUG: Confirm the function is running on the search page
     console.log(`[DEBUG] buildOverlay running. URL: ${window.location.href}`);
 
     const rows = Array.from(document.querySelectorAll(
@@ -29,9 +28,7 @@ javascript:(function clickeduMain() {
     ));
     
     if (!rows.length) {
-      if (localStorage.getItem(FLAG_NAME) !== 'true') {
-         console.log("⚠️ No results found yet.");
-      }
+      console.log("⚠️ No results found yet.");
       return false;
     }
 
@@ -107,7 +104,6 @@ javascript:(function clickeduMain() {
       const list = catMap[cat];
       if (!list.length) return;
 
-      // Foldable header
       const head = document.createElement("div");
       head.innerText = cat + " (" + list.length + ")";
       Object.assign(head.style, {
@@ -120,7 +116,6 @@ javascript:(function clickeduMain() {
       });
       container.appendChild(head);
 
-      // Content container (collapsed)
       const content = document.createElement("div");
       Object.assign(content.style, {
         display: "none",
@@ -134,7 +129,6 @@ javascript:(function clickeduMain() {
         content.style.display = content.style.display === "none" ? "grid" : "none";
       });
 
-      // Buttons
       list.forEach(item => {
         const a = item.element;
         const t = item.text;
@@ -158,120 +152,137 @@ javascript:(function clickeduMain() {
           textAlign: "center",
           overflow: "hidden"
         });
-        btn.addEventListener("click", e => { 
-          e.stopPropagation(); 
+        btn.addEventListener("click", e => { 
+          e.stopPropagation(); 
           console.log("🖱️ Clicked:", t);
-          a.click(); 
+          a.click(); 
         });
         content.appendChild(btn);
       });
     });
 
     // Cleanup flags upon success
-    console.log("🗺️ ClickEdu overlay ready! (SUCCESS & CLEANUP)");
+    console.log("🗺️ ClickEdu overlay ready!");
     localStorage.removeItem(FLAG_NAME);
     localStorage.removeItem(SCRIPT_NAME);
     return true;
   }
 
-  // --- Scenario 1: Auto-Build After Page Reload Logic ---
+  // --- Scenario 1: Auto-Build if we're on search results page ---
   if (localStorage.getItem(FLAG_NAME) === 'true') {
-    const startTime = performance.now();
-    console.log(`🔄 Detected page reload, attempting to build overlay... Time: ${startTime.toFixed(2)}ms`);
-
+    console.log('🔄 Detected search was triggered, building overlay...');
+    
+    // Show notification to user
+    const notification = document.createElement('div');
+    notification.textContent = '⏳ Building ClickEdu overlay...';
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '10px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#4CAF50',
+      color: 'white',
+      padding: '12px 24px',
+      borderRadius: '8px',
+      zIndex: '9999999',
+      fontWeight: 'bold',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+    });
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 3000);
+    
     if (buildOverlay()) {
       return;
     }
     
-    // If not found, set up MutationObserver to wait for results
+    // If not found immediately, wait with MutationObserver
     let loaded = false;
     const observer = new MutationObserver(() => {
       if (loaded) return;
       if (buildOverlay()) {
         loaded = true;
         observer.disconnect();
-        const endTime = performance.now();
-        console.log(`✔ Observer success. Total wait time: ${(endTime - startTime).toFixed(2)}ms`);
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
-    // Safety Timeout (EXTENDED TO 20 SECONDS)
+    // Safety Timeout
     setTimeout(() => {
       observer.disconnect();
       if (!loaded) {
         localStorage.removeItem(FLAG_NAME);
         localStorage.removeItem(SCRIPT_NAME);
-        console.log("⏱️ Timeout: Results not found after page reload. (Flags cleaned)");
+        console.log("⏱️ Timeout: Results not found after page reload.");
+        
+        // Show error notification
+        const errorNotif = document.createElement('div');
+        errorNotif.textContent = '❌ ClickEdu overlay timed out. Try clicking the bookmarklet again.';
+        Object.assign(errorNotif.style, {
+          position: 'fixed',
+          top: '10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#f44336',
+          color: 'white',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          zIndex: '9999999',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        });
+        document.body.appendChild(errorNotif);
+        setTimeout(() => errorNotif.remove(), 5000);
       }
-    }, 20000); // 20 seconds
+    }, 20000);
     
     return;
   }
 
-  // --- Scenario 2: Initial Run & Search Trigger Logic ---
-  
+  // --- Scenario 2: Check if results already exist (already on search page) ---
   if (buildOverlay()) {
-    console.log("✨ Results already present on initial run!");
+    console.log("✨ Results already present!");
     return;
   }
 
-  // NEW: Wait for search elements to ensure they are loaded
-  function waitForSearchElements(attempts = 0) {
-      const input = document.querySelector("#p");
-      const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
-
-      if (input && searchBtn && input.value !== "_") {
-          // Success: Elements found, proceed to trigger search
-          triggerSearch(input, searchBtn);
-      } else if (attempts < 10) {
-          // Not found yet, wait 100ms and try again
-          setTimeout(() => waitForSearchElements(attempts + 1), 100);
-      } else {
-          // Timeout: Elements never appeared
-          console.log("❌ Search form elements not found after waiting 1 second.");
-          localStorage.removeItem(FLAG_NAME); 
-          localStorage.removeItem(SCRIPT_NAME);
-      }
-  }
-
-  function triggerSearch(input, searchBtn) {
-      // 1. Store the entire script code and flag for re-execution
-      const scriptCode = '(' + clickeduMain.toString() + ')();';
-      localStorage.setItem(SCRIPT_NAME, scriptCode);
-      localStorage.setItem(FLAG_NAME, 'true');
-      
-      // 2. Inject auto-runner to trigger the main script on the next page load
-      const autoScript = document.createElement('script');
-      autoScript.id = 'clickeduAutoRunner';
-      autoScript.textContent = `
-          (function() {
-              const SCRIPT_NAME = '${SCRIPT_NAME}';
-              const FLAG_NAME = '${FLAG_NAME}';
-              
-              window.addEventListener('DOMContentLoaded', function() {
-                  const storedScript = localStorage.getItem(SCRIPT_NAME);
-                  if (storedScript && localStorage.getItem(FLAG_NAME) === 'true') {
-                      console.log('🚀 Auto-executing ClickEdu script after page load...');
-                      try {
-                          (1,eval)(storedScript);
-                      } catch(e) {
-                          console.error('❌ Auto-execution failed:', e);
-                          localStorage.removeItem(SCRIPT_NAME);
-                          localStorage.removeItem(FLAG_NAME);
-                      }
-                  }
-              }, { once: true });
-          })();
-      `;
-      document.head.appendChild(autoScript);
-      
-      // 3. Perform the search (causes page reload)
-      input.value = "_";
-      searchBtn.click();
-      console.log("🔍 Search triggered with '_' value. Page will reload and auto-build overlay...");
-  }
+  // --- Scenario 3: Trigger search and show instructions ---
+  const input = document.querySelector("#p");
+  const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
   
-  // Start the wait process
-  waitForSearchElements();
+  if (input && searchBtn) {
+    // Set flag so we know to build overlay after reload
+    localStorage.setItem(FLAG_NAME, 'true');
+    
+    // Show instruction notification
+    const instructionNotif = document.createElement('div');
+    instructionNotif.innerHTML = `
+      <div style="font-size: 16px; margin-bottom: 8px;">🔍 Triggering search...</div>
+      <div style="font-size: 14px; opacity: 0.9;">Click the bookmarklet again after the page reloads to build the overlay.</div>
+    `;
+    Object.assign(instructionNotif.style, {
+      position: 'fixed',
+      top: '10px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#2196F3',
+      color: 'white',
+      padding: '16px 24px',
+      borderRadius: '8px',
+      zIndex: '9999999',
+      fontWeight: 'bold',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      maxWidth: '400px',
+      textAlign: 'center'
+    });
+    document.body.appendChild(instructionNotif);
+    
+    input.value = "_";
+    
+    setTimeout(() => {
+      searchBtn.click();
+      console.log("🔍 Search triggered. Click bookmarklet again after page reloads.");
+    }, 2000); // Give user time to read the message
+  } else {
+    console.log("❌ Search form not found.");
+  }
 })();
