@@ -300,8 +300,8 @@ javascript:(function clickeduMain() {
     setTimeout(() => {
       instructionNotif.remove();
       searchBtn.click();
-      console.log("🔍 Cerca activada. Torna a clicar el bookmarklet després de la recàrrega.");
-    }, 1500);
+      console.log("🔍 Espera una estona i Torna a CLICAR el bookmarklet.");
+    }, 3500);
   } else {
     console.log("❌ No s'han trobat els elements del formulari de cerca.");
     localStorage.removeItem(FLAG_NAME); 
