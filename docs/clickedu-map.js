@@ -8,12 +8,8 @@ javascript:(()=>{
     return;
   }
   
-  // Check if we need to auto-run after reload
-  const autoRun = sessionStorage.getItem('clickeduActive') === 'true';
-  
-  if (!autoRun) {
-    sessionStorage.setItem('clickeduActive', 'true');
-  }
+  // Mark as active before reload
+  sessionStorage.setItem('clickeduActive', 'true');
   
   const waitSearch = setInterval(() => {
     const input = document.querySelector("#p");
