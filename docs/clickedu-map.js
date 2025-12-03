@@ -108,9 +108,9 @@
         });
         container.appendChild(header);
 
-        // content container
+        // content container (collapsed by default)
         const content = document.createElement("div");
-        content.style.display="none";
+        content.style.display="none"; // <-- collapsed initially
         content.style.gridTemplateColumns="repeat(3, 1fr)";
         content.style.gap="10px";
         content.style.marginBottom="6px";
@@ -156,5 +156,5 @@
         });
     });
 
-    console.log("✔ Categorized map generated.");
+    console.log("✔ Categorized map generated (all foldables collapsed).");
 })();
