@@ -3,27 +3,22 @@ javascript:(()=>{
   
   if (EXIST) {
     EXIST.remove();
-    localStorage.removeItem('clickeduActive');
     return;
   }
   
-  // Main function to build the UI
-  function buildUI() {
-    console.log('buildUI called, looking for results...');
-    let loaded = false;
-    let attempts = 0;
+  // Check if we're on the target page in a new tab
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('clickedu_overlay') === 'true') {
+    console.log('New tab detected, building overlay...');
     
+    let loaded = false;
     const checkResults = setInterval(() => {
-      attempts++;
       const rows = Array.from(document.querySelectorAll("table tbody tr td table tbody tr td:nth-child(3) div span strong a"));
-      console.log('Attempt', attempts, '- Found', rows.length, 'rows');
+      console.log('Looking for results... found:', rows.length);
       
       if (rows.length && !loaded) {
         loaded = true;
         clearInterval(checkResults);
-        console.log('Building UI with', rows.length, 'items');
-        
-        localStorage.removeItem('clickeduActive');
         
         const container = document.createElement("div");
         container.id = "clickeduMapContainer";
@@ -143,66 +138,57 @@ javascript:(()=>{
           });
         });
       }
-      
-      if (attempts > 40) {
-        clearInterval(checkResults);
-        console.log('Timeout: No results found after 40 attempts');
-      }
     }, 300);
-  }
-  
-  // Check if we should auto-run (after page navigation)
-  if (localStorage.getItem('clickeduActive') === 'true') {
-    console.log('Auto-running after page load');
-    buildUI();
+    
     return;
   }
   
-  // First time running - trigger the search
-  console.log('First run - setting up search trigger');
-  localStorage.setItem('clickeduActive', 'true');
+  // First run - get the search form action URL
+  console.log('Getting search URL...');
   
-  // Set up listener for page changes (both reload and AJAX)
-  const observer = new MutationObserver(() => {
-    if (localStorage.getItem('clickeduActive') === 'true') {
-      const rows = document.querySelectorAll("table tbody tr td table tbody tr td:nth-child(3) div span strong a");
-      if (rows.length > 0) {
-        console.log('Results appeared via AJAX!');
-        observer.disconnect();
-        buildUI();
+  const waitSearch = setInterval(() => {
+    const form = document.querySelector("#frm_cercar");
+    const input = document.querySelector("#p");
+    
+    if (form && input) {
+      clearInterval(waitSearch);
+      
+      // Get the form action URL
+      let actionUrl = form.action || window.location.href;
+      
+      // Build the search URL with parameters
+      const formData = new FormData(form);
+      formData.set('p', '_');
+      
+      const params = new URLSearchParams();
+      for (let [key, value] of formData.entries()) {
+        params.append(key, value);
+      }
+      
+      // Add our special marker
+      params.append('clickedu_overlay', 'true');
+      
+      const finalUrl = actionUrl + '?' + params.toString();
+      
+      console.log('Opening new tab with URL:', finalUrl);
+      
+      // Open in new tab
+      const newTab = window.open(finalUrl, '_blank');
+      
+      if (!newTab) {
+        alert('Please allow pop-ups for this site, then try again.');
+      } else {
+        // Inject our script into the new tab
+        setTimeout(() => {
+          try {
+            const script = newTab.document.createElement('script');
+            script.textContent = '(' + arguments.callee.toString() + ')();';
+            newTab.document.head.appendChild(script);
+          } catch (e) {
+            console.log('Could not inject script (cross-origin), the new tab will need manual activation');
+          }
+        }, 1000);
       }
     }
-  });
-  
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-  
-  // Trigger the search
-  const waitSearch = setInterval(() => {
-    const input = document.querySelector("#p");
-    const btn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
-    
-    if (input && btn) {
-      clearInterval(waitSearch);
-      console.log('Found search elements');
-      console.log('Input element:', input);
-      console.log('Button element:', btn);
-      
-      input.value = "_";
-      console.log('Set input value to: "_"');
-      console.log('Input value is now:', input.value);
-      
-      setTimeout(() => {
-        console.log('Clicking button...');
-        btn.click();
-        console.log('Button clicked');
-      }, 200);
-    }
   }, 100);
-  
-  setTimeout(() => {
-    clearInterval(waitSearch);
-  }, 5000);
 })();
