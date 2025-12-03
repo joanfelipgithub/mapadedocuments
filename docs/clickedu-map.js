@@ -204,7 +204,7 @@ javascript:(function clickeduMain() {
         localStorage.removeItem(SCRIPT_NAME);
         console.log("⏱️ Timeout: Results not found after page reload. (Flags cleaned)");
       }
-    }, 20000); // Increased to 20 seconds
+    }, 20000); // 20 seconds
     
     return;
   }
@@ -216,48 +216,62 @@ javascript:(function clickeduMain() {
     return;
   }
 
-  // No results yet, find search elements
-  const input = document.querySelector("#p");
-  const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
-  
-  if (input && searchBtn && input.value !== "_") { 
-    // 1. Store the entire script code and flag for re-execution
-    const scriptCode = '(' + clickeduMain.toString() + ')();';
-    localStorage.setItem(SCRIPT_NAME, scriptCode);
-    localStorage.setItem(FLAG_NAME, 'true');
-    
-    // 2. Inject auto-runner to trigger the main script on the next page load
-    const autoScript = document.createElement('script');
-    autoScript.id = 'clickeduAutoRunner';
-    autoScript.textContent = `
-      (function() {
-        const SCRIPT_NAME = '${SCRIPT_NAME}';
-        const FLAG_NAME = '${FLAG_NAME}';
-        
-        window.addEventListener('DOMContentLoaded', function() {
-          const storedScript = localStorage.getItem(SCRIPT_NAME);
-          if (storedScript && localStorage.getItem(FLAG_NAME) === 'true') {
-            console.log('🚀 Auto-executing ClickEdu script after page load...');
-            try {
-              (1,eval)(storedScript);
-            } catch(e) {
-              console.error('❌ Auto-execution failed:', e);
-              localStorage.removeItem(SCRIPT_NAME);
-              localStorage.removeItem(FLAG_NAME);
-            }
-          }
-        }, { once: true });
-      })();
-    `;
-    document.head.appendChild(autoScript);
-    
-    // 3. Perform the search (causes page reload)
-    input.value = "_";
-    searchBtn.click();
-    console.log("🔍 Search triggered with '_' value. Page will reload and auto-build overlay...");
-  } else {
-    console.log("❌ Search form not found or already searched (input is '_').");
-    localStorage.removeItem(FLAG_NAME); 
-    localStorage.removeItem(SCRIPT_NAME);
+  // NEW: Wait for search elements to ensure they are loaded
+  function waitForSearchElements(attempts = 0) {
+      const input = document.querySelector("#p");
+      const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
+
+      if (input && searchBtn && input.value !== "_") {
+          // Success: Elements found, proceed to trigger search
+          triggerSearch(input, searchBtn);
+      } else if (attempts < 10) {
+          // Not found yet, wait 100ms and try again
+          setTimeout(() => waitForSearchElements(attempts + 1), 100);
+      } else {
+          // Timeout: Elements never appeared
+          console.log("❌ Search form elements not found after waiting 1 second.");
+          localStorage.removeItem(FLAG_NAME); 
+          localStorage.removeItem(SCRIPT_NAME);
+      }
   }
+
+  function triggerSearch(input, searchBtn) {
+      // 1. Store the entire script code and flag for re-execution
+      const scriptCode = '(' + clickeduMain.toString() + ')();';
+      localStorage.setItem(SCRIPT_NAME, scriptCode);
+      localStorage.setItem(FLAG_NAME, 'true');
+      
+      // 2. Inject auto-runner to trigger the main script on the next page load
+      const autoScript = document.createElement('script');
+      autoScript.id = 'clickeduAutoRunner';
+      autoScript.textContent = `
+          (function() {
+              const SCRIPT_NAME = '${SCRIPT_NAME}';
+              const FLAG_NAME = '${FLAG_NAME}';
+              
+              window.addEventListener('DOMContentLoaded', function() {
+                  const storedScript = localStorage.getItem(SCRIPT_NAME);
+                  if (storedScript && localStorage.getItem(FLAG_NAME) === 'true') {
+                      console.log('🚀 Auto-executing ClickEdu script after page load...');
+                      try {
+                          (1,eval)(storedScript);
+                      } catch(e) {
+                          console.error('❌ Auto-execution failed:', e);
+                          localStorage.removeItem(SCRIPT_NAME);
+                          localStorage.removeItem(FLAG_NAME);
+                      }
+                  }
+              }, { once: true });
+          })();
+      `;
+      document.head.appendChild(autoScript);
+      
+      // 3. Perform the search (causes page reload)
+      input.value = "_";
+      searchBtn.click();
+      console.log("🔍 Search triggered with '_' value. Page will reload and auto-build overlay...");
+  }
+  
+  // Start the wait process
+  waitForSearchElements();
 })();
