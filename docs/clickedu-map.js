@@ -26,7 +26,6 @@ javascript:(function clickeduMain() {
     }
 
     if (!rows.length) {
-      // Don't log 'No results' if we're expecting a reload to bring them
       if (localStorage.getItem(FLAG_NAME) !== 'true') {
          console.log("⚠️ No results found yet.");
       }
@@ -53,13 +52,12 @@ javascript:(function clickeduMain() {
     });
     document.body.appendChild(container);
 
-    // --- Categories Definition ---
+    // --- Categories Definition & Assignment ---
     const cats = ["EAFP","EA","GA","POC","GRL","GQ","EAESO","PO","GC","EABAT","SOR","Gestio","GRH"];
     const catMap = {};
     cats.push("Altres");
     cats.forEach(c => catMap[c] = []);
 
-    // --- Assign links to categories ---
     rows.forEach(a => {
       const t = a.innerText.trim();
       if (/obsolet/i.test(t)) return;
@@ -69,7 +67,7 @@ javascript:(function clickeduMain() {
       catMap[cat].push({ element: a, text: t });
     });
 
-    // --- Block Office Viewer Function ---
+    // --- Block Office Viewer Function & Listener (No change needed here) ---
     function stripOfficeViewer(u) {
       try {
         const n = new URL(u);
@@ -81,11 +79,9 @@ javascript:(function clickeduMain() {
       return u;
     }
 
-    // --- Office Viewer Blocking Listener ---
     document.addEventListener("click", e => {
       const a = e.target.closest("a");
       if (!a) return;
-      // Skip links inside our custom overlay
       if (a.closest("#clickeduMapContainer")) return; 
         
       const h = a.href;
@@ -101,7 +97,7 @@ javascript:(function clickeduMain() {
         dl.remove();
         console.log("🚫 OfficeViewer blocked → downloading:", d);
       }
-    }, true); // Use capture phase
+    }, true); 
 
     // --- Build foldable categories UI ---
     Object.keys(catMap).forEach(cat => {
@@ -142,6 +138,10 @@ javascript:(function clickeduMain() {
         const l = t.match(/^[^ _]+/) ? t.match(/^[^ _]+/)[0] : t;
         const btn = document.createElement("div");
         btn.innerText = l;
+        
+        // D-3: Potential reflow source starts here (setting many styles)
+        console.log(`[D-3] Building button for: ${l}`);
+
         Object.assign(btn.style, {
           width: "127px",
           height: "54px",
@@ -167,29 +167,32 @@ javascript:(function clickeduMain() {
       });
     });
 
-    // Clean up flags upon success
+    // D-4: Confirmation log for successful build and cleanup
+    console.log("🗺️ ClickEdu overlay ready! [D-4: SUCCESS & CLEANUP]");
     localStorage.removeItem(FLAG_NAME);
     localStorage.removeItem(SCRIPT_NAME);
-    console.log("🗺️ ClickEdu overlay ready!");
     return true;
   }
 
-  // --- Scenario 1: Auto-Build After Page Reload ---
+  // --- Scenario 1: Auto-Build After Page Reload Logic ---
   if (localStorage.getItem(FLAG_NAME) === 'true') {
-    console.log("🔄 Detected page reload, attempting to build overlay...");
-    
-    // Try building immediately
+    // D-1: Log script entry point for reload
+    const startTime = performance.now();
+    console.log(`[D-1] SCENARIO: PAGE RELOAD. Time: ${startTime.toFixed(2)}ms`);
+
     if (buildOverlay()) {
       return;
     }
     
-    // If not found, set up MutationObserver to wait for results
+    // If not found, set up MutationObserver
     let loaded = false;
     const observer = new MutationObserver(() => {
       if (loaded) return;
       if (buildOverlay()) {
         loaded = true;
         observer.disconnect();
+        const endTime = performance.now();
+        console.log(`[D-1] Observer success. Total wait time: ${(endTime - startTime).toFixed(2)}ms`);
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -197,21 +200,23 @@ javascript:(function clickeduMain() {
     // Safety Timeout
     setTimeout(() => {
       observer.disconnect();
-      localStorage.removeItem(FLAG_NAME);
-      localStorage.removeItem(SCRIPT_NAME);
       if (!loaded) {
-        console.log("⏱️ Timeout: Results not found after page reload.");
+        localStorage.removeItem(FLAG_NAME);
+        localStorage.removeItem(SCRIPT_NAME);
+        console.log("⏱️ Timeout: Results not found after page reload. (Flags cleaned)");
       }
-    }, 10000); // 10 second timeout
+    }, 10000); 
     
     return;
   }
 
-  // --- Scenario 2: Initial Run & Search Trigger ---
+  // --- Scenario 2: Initial Run & Search Trigger Logic ---
   
-  // First check if results are already present (user started on results page)
+  // D-2: Log script entry point for initial run
+  console.log("[D-2] SCENARIO: INITIAL RUN.");
+
   if (buildOverlay()) {
-    console.log("✨ Results already present!");
+    console.log("✨ Results already present on initial run!");
     return;
   }
 
@@ -220,12 +225,12 @@ javascript:(function clickeduMain() {
   const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
   
   if (input && searchBtn && input.value !== "_") { 
-    // 1. Store the entire script code and flag for re-execution
+    // Store script code and flag
     const scriptCode = '(' + clickeduMain.toString() + ')();';
     localStorage.setItem(SCRIPT_NAME, scriptCode);
     localStorage.setItem(FLAG_NAME, 'true');
     
-    // 2. Inject auto-runner to trigger the main script on the next page load
+    // Inject auto-runner
     const autoScript = document.createElement('script');
     autoScript.id = 'clickeduAutoRunner';
     autoScript.textContent = `
@@ -245,19 +250,17 @@ javascript:(function clickeduMain() {
               localStorage.removeItem(FLAG_NAME);
             }
           }
-        }, { once: true }); // Use { once: true } for cleanup
+        }, { once: true });
       })();
     `;
     document.head.appendChild(autoScript);
     
-    // 3. Perform the search (causes page reload)
+    // Perform the search (causes page reload)
     input.value = "_";
     searchBtn.click();
     console.log("🔍 Search triggered with '_' value. Page will reload and auto-build overlay...");
   } else {
-    // This is typically reached if the search form elements aren't found
     console.log("❌ Search form not found or already searched (input is '_').");
-    // Ensure flags are clean if we couldn't trigger the search
     localStorage.removeItem(FLAG_NAME); 
     localStorage.removeItem(SCRIPT_NAME);
   }
