@@ -1,32 +1,26 @@
-javascript:(() => {
+javascript:(function clickeduMain() {
   const EXIST = document.getElementById("clickeduMapContainer");
   if (EXIST) {
     EXIST.remove();
+    localStorage.removeItem('clickeduBuildOverlay');
+    localStorage.removeItem('clickeduScript');
     console.log("🧹 Map removed.");
     return;
   }
 
   console.log("⏳ ClickEdu map: initializing…");
 
-  // Fill '_' in the search input and click search
-  const input = document.querySelector("#p");
-  const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
-  if (input && searchBtn && input.value !== "_") {
-    input.value = "_";
-    searchBtn.click();
-    console.log("🔍 Search triggered with '_' value.");
-  }
-
-  // Wait for results table using MutationObserver
-  let loaded = false;
-  const observer = new MutationObserver(() => {
+  // Function to build the overlay
+  function buildOverlay() {
     const rows = Array.from(document.querySelectorAll(
       "table tbody tr td table tbody tr td:nth-child(3) div span strong a"
     ));
-    if (!rows.length || loaded) return;
+    
+    if (!rows.length) {
+      console.log("⚠️ No results found yet.");
+      return false;
+    }
 
-    loaded = true;
-    observer.disconnect(); // Stop observing once we found results
     console.log("✔ Search results detected:", rows.length);
 
     // --- Overlay container ---
@@ -157,25 +151,88 @@ javascript:(() => {
       });
     });
 
+    // Clean up flags
+    localStorage.removeItem('clickeduBuildOverlay');
+    localStorage.removeItem('clickeduScript');
     console.log("🗺️ ClickEdu overlay ready!");
-  });
+    return true;
+  }
 
-  observer.observe(document.body, { childList: true, subtree: true });
-  
-  // Safety: check if results already exist (in case we're already on results page)
-  setTimeout(() => {
-    const existingRows = document.querySelectorAll(
-      "table tbody tr td table tbody tr td:nth-child(3) div span strong a"
-    );
-    if (existingRows.length && !loaded) {
-      console.log("⚡ Results already present, triggering observer manually");
-      observer.disconnect();
-      observer.takeRecords();
-      const rows = Array.from(existingRows);
-      if (rows.length) {
-        const evt = new MutationEvent();
-        observer.callback([evt]);
-      }
+  // Check if we should auto-build after page reload
+  if (localStorage.getItem('clickeduBuildOverlay') === 'true') {
+    console.log("🔄 Detected page reload, building overlay...");
+    
+    // Try immediately
+    if (buildOverlay()) {
+      return;
     }
-  }, 100);
+    
+    // If not found, wait with MutationObserver
+    let loaded = false;
+    const observer = new MutationObserver(() => {
+      if (loaded) return;
+      if (buildOverlay()) {
+        loaded = true;
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      observer.disconnect();
+      localStorage.removeItem('clickeduBuildOverlay');
+      localStorage.removeItem('clickeduScript');
+      if (!loaded) {
+        console.log("⏱️ Timeout: Results not found after page reload.");
+      }
+    }, 10000);
+    
+    return;
+  }
+
+  // First run: Check if results already exist
+  if (buildOverlay()) {
+    console.log("✨ Results already present!");
+    return;
+  }
+
+  // No results yet, trigger search
+  const input = document.querySelector("#p");
+  const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
+  
+  if (input && searchBtn) {
+    // Store the entire script in localStorage for auto-execution after reload
+    const scriptCode = '(' + clickeduMain.toString() + ')();';
+    localStorage.setItem('clickeduScript', scriptCode);
+    localStorage.setItem('clickeduBuildOverlay', 'true');
+    
+    // Inject auto-runner that will execute after page loads
+    const autoScript = document.createElement('script');
+    autoScript.id = 'clickeduAutoRunner';
+    autoScript.textContent = `
+      (function() {
+        window.addEventListener('DOMContentLoaded', function() {
+          const storedScript = localStorage.getItem('clickeduScript');
+          if (storedScript && localStorage.getItem('clickeduBuildOverlay') === 'true') {
+            console.log('🚀 Auto-executing ClickEdu script after page load...');
+            try {
+              eval(storedScript);
+            } catch(e) {
+              console.error('❌ Auto-execution failed:', e);
+              localStorage.removeItem('clickeduScript');
+              localStorage.removeItem('clickeduBuildOverlay');
+            }
+          }
+        });
+      })();
+    `;
+    document.head.appendChild(autoScript);
+    
+    input.value = "_";
+    searchBtn.click();
+    console.log("🔍 Search triggered with '_' value. Page will reload and auto-build overlay...");
+  } else {
+    console.log("❌ Search form not found.");
+  }
 })();
