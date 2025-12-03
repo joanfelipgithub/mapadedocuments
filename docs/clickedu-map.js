@@ -8,6 +8,18 @@ javascript:(function clickeduMain() {
     const DEFAULT_BG = '#93C81C';
     const DEFAULT_TEXT = '#013365';
     
+    // Paleta de Colors per a l'usuari
+    const COLOR_PALETTE = [
+        DEFAULT_BG, 
+        DEFAULT_TEXT,
+        '#FFFFFF', 
+        '#000000', 
+        '#AAAAAA', 
+        '#FF0000', 
+        '#00AAFF', 
+        '#FFCC00', 
+    ];
+    
     // Carrega la configuració de colors i favorits de localStorage
     let docConfigs = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
 
@@ -16,6 +28,9 @@ javascript:(function clickeduMain() {
   if (EXIST) {
     EXIST.remove();
     localStorage.removeItem(FLAG_NAME);
+    // Netejar paleta si existeix
+    const existingPalette = document.getElementById('colorPaletteMenu');
+    if (existingPalette) existingPalette.remove();
     console.log("🧹 Mapa eliminat i emmagatzematge netejat.");
     return;
   }
@@ -29,6 +44,81 @@ javascript:(function clickeduMain() {
     // Funció per guardar la configuració actual
     function saveConfigs() {
         localStorage.setItem(CONFIG_KEY, JSON.stringify(docConfigs));
+    }
+    
+    // Funció per obrir i gestionar la Paleta de Colors
+    function openColorPalette(type, btnElement, text, hideContextMenu) {
+        // Eliminar paletes anteriors
+        const existingPalette = document.getElementById('colorPaletteMenu');
+        if (existingPalette) existingPalette.remove();
+
+        const paletteMenu = document.createElement('div');
+        paletteMenu.id = 'colorPaletteMenu';
+        Object.assign(paletteMenu.style, {
+            position: 'fixed',
+            background: '#f8f8f8',
+            border: '1px solid #ccc',
+            padding: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            zIndex: '1000001',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 30px)',
+            gap: '5px',
+            borderRadius: '5px'
+        });
+        document.body.appendChild(paletteMenu);
+        
+        // Posicionar-la a prop del botó
+        const rect = btnElement.getBoundingClientRect();
+        paletteMenu.style.left = (rect.left + rect.width + 10) + 'px';
+        paletteMenu.style.top = (rect.top - 20) + 'px';
+
+        COLOR_PALETTE.forEach(color => {
+            const colorBtn = document.createElement('div');
+            Object.assign(colorBtn.style, {
+                width: '30px',
+                height: '30px',
+                background: color,
+                border: '1px solid #333',
+                cursor: 'pointer'
+            });
+
+            // Afegir text blanc o negre per contrast
+            if (color === '#FFFFFF') {
+                colorBtn.style.border = '1px solid #000';
+            }
+            
+            colorBtn.onclick = () => {
+                let styleProperty, configProperty;
+                if (type === 'background') {
+                    styleProperty = 'background';
+                    configProperty = 'background';
+                } else {
+                    styleProperty = 'color';
+                    configProperty = 'color';
+                }
+
+                btnElement.style[styleProperty] = color;
+                docConfigs[text] = docConfigs[text] || {};
+                docConfigs[text][configProperty] = color;
+                saveConfigs();
+
+                // Eliminar el menú
+                paletteMenu.remove();
+                hideContextMenu();
+            };
+            paletteMenu.appendChild(colorBtn);
+        });
+        
+        // Clica fora per tancar la paleta
+        function closePalette(e) {
+            if (!paletteMenu.contains(e.target) && e.target !== btnElement) {
+                paletteMenu.remove();
+                document.removeEventListener('click', closePalette, true);
+            }
+        }
+        // Utilitzem 'true' (captura) per assegurar-nos que detecta el clic abans que el body
+        setTimeout(() => document.addEventListener('click', closePalette, true), 10); 
     }
 
 // ----------------------------------------------------------------------
@@ -76,7 +166,6 @@ javascript:(function clickeduMain() {
     const cats = ["EAFP","EA","GA","POC","GRL","GQ","EAESO","PO","GC","EABAT","SOR","Gestio","GRH"];
     const catMap = {};
     cats.push("Altres");
-    // Afegim una categoria especial per als favorits
     catMap["❤️ Favorits"] = []; 
     cats.forEach(c => catMap[c] = []);
     
@@ -85,12 +174,11 @@ javascript:(function clickeduMain() {
     rows.forEach(a => {
         const url = a.href;
         
-        // Omet si la URL ja s'ha processat
         if (uniqueUrls.has(url)) {
             return; 
         }
         
-        uniqueUrls.set(url, true); // Marca la URL com a vista
+        uniqueUrls.set(url, true); 
         
       const t = a.innerText.trim();
       if (/obsolet/i.test(t)) return;
@@ -102,7 +190,6 @@ javascript:(function clickeduMain() {
 
       catMap[cat].push(docData);
       
-      // Si el document és favorit, també l'afegim a la llista de Favorits
       if (docConfigs[t] && docConfigs[t].favorite) {
           catMap["❤️ Favorits"].push(docData);
       }
@@ -131,13 +218,11 @@ javascript:(function clickeduMain() {
         }
         
         document.addEventListener('click', hideMenu);
-        // Evita tancar el menú si es fa clic dret sobre ell mateix (o un altre botó)
         document.addEventListener('contextmenu', (e) => {
             if (e.target !== btnElement) hideMenu();
         });
 
         const isFav = docConfigs[text] && docConfigs[text].favorite;
-        // 🚨 AJUST DE TEXT APLICAT AQUÍ
         const favText = isFav ? "💔 Ja no és favorit" : "❤️ Afegir a Favorits";
         
         // Opció 1: Favorits
@@ -161,17 +246,9 @@ javascript:(function clickeduMain() {
         bgItem.textContent = "🎨 Canviar Color Fons";
         bgItem.onmouseover = () => bgItem.style.background = '#eee';
         bgItem.onmouseout = () => bgItem.style.background = 'white';
-        bgItem.onclick = () => {
-            const newColor = prompt("Introdueix el nou color de fons (HEX, e.g. #FF0000):", btnElement.style.backgroundColor);
-            if (newColor && /^#[0-9A-F]{6}$/i.test(newColor)) {
-                btnElement.style.background = newColor;
-                docConfigs[text] = docConfigs[text] || {};
-                docConfigs[text].background = newColor;
-                saveConfigs();
-            } else if (newColor !== null) {
-                alert("Format de color no vàlid. Utilitza #RRGGBB.");
-            }
-            hideMenu();
+        bgItem.onclick = (e) => {
+            e.stopPropagation(); // Evita que es tanqui el menú principal
+            openColorPalette('background', btnElement, text, hideMenu);
         };
         menu.appendChild(bgItem);
         
@@ -181,17 +258,9 @@ javascript:(function clickeduMain() {
         textColorItem.textContent = "🅰️ Canviar Color Lletres";
         textColorItem.onmouseover = () => textColorItem.style.background = '#eee';
         textColorItem.onmouseout = () => textColorItem.style.background = 'white';
-        textColorItem.onclick = () => {
-            const newColor = prompt("Introdueix el nou color de lletres (HEX, e.g. #000000):", btnElement.style.color);
-            if (newColor && /^#[0-9A-F]{6}$/i.test(newColor)) {
-                btnElement.style.color = newColor;
-                docConfigs[text] = docConfigs[text] || {};
-                docConfigs[text].color = newColor;
-                saveConfigs();
-            } else if (newColor !== null) {
-                alert("Format de color no vàlid. Utilitza #RRGGBB.");
-            }
-            hideMenu();
+        textColorItem.onclick = (e) => {
+            e.stopPropagation(); // Evita que es tanqui el menú principal
+            openColorPalette('color', btnElement, text, hideMenu);
         };
         menu.appendChild(textColorItem);
 
@@ -215,7 +284,7 @@ javascript:(function clickeduMain() {
     document.addEventListener("click", e => {
       const a = e.target.closest("a");
       if (!a) return;
-      if (a.closest("#clickeduMapContainer")) return;  // Ignora els clics dins del mapa
+      if (a.closest("#clickeduMapContainer")) return; 
         
       const h = a.href;
       const d = stripOfficeViewer(h);
@@ -237,7 +306,6 @@ javascript:(function clickeduMain() {
       let list = catMap[cat];
       if (!list.length) return;
       
-      // Ordena per a totes les categories (excepte Favorits, que es manté a dalt)
       if (cat !== "❤️ Favorits") {
           list.sort((a, b) => {
               const textA = a.text.toUpperCase();
@@ -265,7 +333,7 @@ javascript:(function clickeduMain() {
       // Contenidor de contingut (col·lapsat)
       const content = document.createElement("div");
       Object.assign(content.style, {
-        display: (cat === "❤️ Favorits") ? "grid" : "none", // Mostra Favorits per defecte
+        display: (cat === "❤️ Favorits") ? "grid" : "none", 
         gridTemplateColumns: "repeat(3,1fr)",
         gap: "10px",
         marginBottom: "6px"
@@ -284,7 +352,6 @@ javascript:(function clickeduMain() {
         const btn = document.createElement("div");
         btn.innerText = l;
         
-        // Aplica colors personalitzats o per defecte
         const config = docConfigs[t] || {};
         const bgColor = config.background || DEFAULT_BG;
         const textColor = config.color || DEFAULT_TEXT;
@@ -295,8 +362,8 @@ javascript:(function clickeduMain() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: bgColor, // Color fix o personalitzat
-          color: textColor, // Color fix o personalitzat
+          background: bgColor, 
+          color: textColor, 
           fontWeight: "bold",
           fontSize: "14px",
           borderRadius: "10px",
@@ -315,7 +382,11 @@ javascript:(function clickeduMain() {
         
         // Event: Clic dret (menú contextual)
         btn.addEventListener('contextmenu', (e) => {
-            e.preventDefault(); // Evita el menú natiu del navegador
+            e.preventDefault(); 
+            
+            // Tanca la paleta de colors si està oberta
+            const existingPalette = document.getElementById('colorPaletteMenu');
+            if (existingPalette) existingPalette.remove();
             
             const existingMenu = document.getElementById('clickeduContextMenu');
             if (existingMenu) existingMenu.remove();
@@ -323,7 +394,6 @@ javascript:(function clickeduMain() {
             const menu = createContextMenu(btn, t, item);
             menu.id = 'clickeduContextMenu';
             
-            // Posiciona el menú just al costat del ratolí
             menu.style.left = e.clientX + 'px';
             menu.style.top = e.clientY + 'px';
             menu.style.display = 'flex';
@@ -333,7 +403,6 @@ javascript:(function clickeduMain() {
       });
     });
 
-    // Neteja la bandera d'èxit
     console.log("🗺️ Mapa ClickEdu a punt!");
     localStorage.removeItem(FLAG_NAME);
     return true;
@@ -344,7 +413,6 @@ javascript:(function clickeduMain() {
   if (localStorage.getItem(FLAG_NAME) === 'true') {
     console.log('🔄 S\'ha detectat que la cerca s\'ha activat, construint la superposició...');
     
-    // Mostra notificació a l'usuari
     const notification = document.createElement('div');
     notification.textContent = '⏳ Construint superposició ClickEdu...';
     Object.assign(notification.style, {
@@ -364,12 +432,10 @@ javascript:(function clickeduMain() {
     
     setTimeout(() => notification.remove(), 3000);
     
-    // Prova immediatament
     if (buildOverlay()) {
       return;
     }
     
-    // Si no es troba immediatament, espera amb MutationObserver
     let loaded = false;
     const observer = new MutationObserver(() => {
       if (loaded) return;
@@ -380,14 +446,12 @@ javascript:(function clickeduMain() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
-    // Timeout de seguretat (20 segons)
     setTimeout(() => {
       observer.disconnect();
       if (!loaded) {
         localStorage.removeItem(FLAG_NAME);
         console.log("⏱️ Temps d'espera esgotat: Resultats no trobats.");
         
-        // Mostra notificació d'error
         const errorNotif = document.createElement('div');
         errorNotif.textContent = '❌ Temps esgotat. Torna a fer clic al bookmarklet.';
         Object.assign(errorNotif.style, {
@@ -413,21 +477,17 @@ javascript:(function clickeduMain() {
 
   // --- 3. Escenari: Inici / Activació de la Cerca (Primer Clic) ---
   
-  // Comprova si els resultats ja existeixen (l'usuari ja és a la pàgina de cerca amb resultats)
   if (buildOverlay()) {
     console.log("✨ Resultats ja presents! Mapa construït.");
     return;
   }
 
-  // No hi ha resultats, troba els elements de cerca
   const input = document.querySelector("#p");
   const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
   
   if (input && searchBtn) {
-    // Estableix la bandera per saber que s'ha d'intentar construir la superposició al següent clic
     localStorage.setItem(FLAG_NAME, 'true');
     
-    // Mostra la notificació d'instrucció (el cor del procés de dos clics)
     const instructionNotif = document.createElement('div');
     instructionNotif.innerHTML = `
       <div style="font-size: 16px; margin-bottom: 8px;">🔍 <strong>Activació de Cerca...</strong></div>
@@ -451,7 +511,6 @@ javascript:(function clickeduMain() {
       textAlign: 'center'
     });
     
-    // Injecta '_' i clica el botó amb un retard adequat
     input.value = "_";
     
     setTimeout(() => {
