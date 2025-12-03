@@ -67,7 +67,7 @@ javascript:(function clickeduMain() {
       catMap[cat].push({ element: a, text: t });
     });
 
-    // --- Block Office Viewer Function & Listener (No change needed here) ---
+    // --- Block Office Viewer Function & Listener ---
     function stripOfficeViewer(u) {
       try {
         const n = new URL(u);
@@ -139,9 +139,6 @@ javascript:(function clickeduMain() {
         const btn = document.createElement("div");
         btn.innerText = l;
         
-        // D-3: Potential reflow source starts here (setting many styles)
-        console.log(`[D-3] Building button for: ${l}`);
-
         Object.assign(btn.style, {
           width: "127px",
           height: "54px",
@@ -167,8 +164,8 @@ javascript:(function clickeduMain() {
       });
     });
 
-    // D-4: Confirmation log for successful build and cleanup
-    console.log("🗺️ ClickEdu overlay ready! [D-4: SUCCESS & CLEANUP]");
+    // Cleanup flags upon success
+    console.log("🗺️ ClickEdu overlay ready! (SUCCESS & CLEANUP)");
     localStorage.removeItem(FLAG_NAME);
     localStorage.removeItem(SCRIPT_NAME);
     return true;
@@ -176,15 +173,14 @@ javascript:(function clickeduMain() {
 
   // --- Scenario 1: Auto-Build After Page Reload Logic ---
   if (localStorage.getItem(FLAG_NAME) === 'true') {
-    // D-1: Log script entry point for reload
     const startTime = performance.now();
-    console.log(`[D-1] SCENARIO: PAGE RELOAD. Time: ${startTime.toFixed(2)}ms`);
+    console.log(`🔄 Detected page reload, attempting to build overlay... Time: ${startTime.toFixed(2)}ms`);
 
     if (buildOverlay()) {
       return;
     }
     
-    // If not found, set up MutationObserver
+    // If not found, set up MutationObserver to wait for results
     let loaded = false;
     const observer = new MutationObserver(() => {
       if (loaded) return;
@@ -192,12 +188,12 @@ javascript:(function clickeduMain() {
         loaded = true;
         observer.disconnect();
         const endTime = performance.now();
-        console.log(`[D-1] Observer success. Total wait time: ${(endTime - startTime).toFixed(2)}ms`);
+        console.log(`✔ Observer success. Total wait time: ${(endTime - startTime).toFixed(2)}ms`);
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
-    // Safety Timeout
+    // Safety Timeout (EXTENDED TO 15 SECONDS)
     setTimeout(() => {
       observer.disconnect();
       if (!loaded) {
@@ -205,16 +201,13 @@ javascript:(function clickeduMain() {
         localStorage.removeItem(SCRIPT_NAME);
         console.log("⏱️ Timeout: Results not found after page reload. (Flags cleaned)");
       }
-    }, 10000); 
+    }, 15000); // 15 seconds
     
     return;
   }
 
   // --- Scenario 2: Initial Run & Search Trigger Logic ---
   
-  // D-2: Log script entry point for initial run
-  console.log("[D-2] SCENARIO: INITIAL RUN.");
-
   if (buildOverlay()) {
     console.log("✨ Results already present on initial run!");
     return;
@@ -225,12 +218,12 @@ javascript:(function clickeduMain() {
   const searchBtn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
   
   if (input && searchBtn && input.value !== "_") { 
-    // Store script code and flag
+    // 1. Store the entire script code and flag for re-execution
     const scriptCode = '(' + clickeduMain.toString() + ')();';
     localStorage.setItem(SCRIPT_NAME, scriptCode);
     localStorage.setItem(FLAG_NAME, 'true');
     
-    // Inject auto-runner
+    // 2. Inject auto-runner to trigger the main script on the next page load
     const autoScript = document.createElement('script');
     autoScript.id = 'clickeduAutoRunner';
     autoScript.textContent = `
@@ -255,7 +248,7 @@ javascript:(function clickeduMain() {
     `;
     document.head.appendChild(autoScript);
     
-    // Perform the search (causes page reload)
+    // 3. Perform the search (causes page reload)
     input.value = "_";
     searchBtn.click();
     console.log("🔍 Search triggered with '_' value. Page will reload and auto-build overlay...");
