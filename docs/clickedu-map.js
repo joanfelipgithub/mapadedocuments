@@ -16,15 +16,18 @@ javascript:(function clickeduMain() {
 
   // --- Core Function: Builds the Overlay from Results ---
   function buildOverlay() {
-    const rows = Array.from(document.querySelectorAll(
-      "table tbody tr td table tbody tr td:nth-child(3) div span strong a"
-    ));
-    
     // Check if the overlay has already been built (important for MutationObserver calls)
     if (document.getElementById("clickeduMapContainer")) {
         return true; 
     }
+    
+    // TEMPORARY DEBUG: Confirm the function is running on the search page
+    console.log(`[DEBUG] buildOverlay running. URL: ${window.location.href}`);
 
+    const rows = Array.from(document.querySelectorAll(
+      "table tbody tr td table tbody tr td:nth-child(3) div span strong a"
+    ));
+    
     if (!rows.length) {
       if (localStorage.getItem(FLAG_NAME) !== 'true') {
          console.log("⚠️ No results found yet.");
@@ -193,7 +196,7 @@ javascript:(function clickeduMain() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
-    // Safety Timeout (EXTENDED TO 15 SECONDS)
+    // Safety Timeout (EXTENDED TO 20 SECONDS)
     setTimeout(() => {
       observer.disconnect();
       if (!loaded) {
@@ -201,7 +204,7 @@ javascript:(function clickeduMain() {
         localStorage.removeItem(SCRIPT_NAME);
         console.log("⏱️ Timeout: Results not found after page reload. (Flags cleaned)");
       }
-    }, 15000); // 15 seconds
+    }, 20000); // Increased to 20 seconds
     
     return;
   }
