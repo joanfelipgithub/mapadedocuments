@@ -59,8 +59,20 @@ javascript:(function clickeduMain() {
     const catMap = {};
     cats.push("Altres");
     cats.forEach(c => catMap[c] = []);
+    
+    // NOU: Mapa per rastrejar URLs ja vistes
+    const uniqueUrls = new Map(); 
 
     rows.forEach(a => {
+        const url = a.href;
+        
+        // Omet si la URL ja s'ha processat
+        if (uniqueUrls.has(url)) {
+            return; 
+        }
+        
+        uniqueUrls.set(url, true); // Marca la URL com a vista
+        
       const t = a.innerText.trim();
       if (/obsolet/i.test(t)) return;
       const m = t.match(/_(.*?)_/);
@@ -184,7 +196,6 @@ javascript:(function clickeduMain() {
 
   // --- 2. Escenari: Intentar Construir (Segon Clic / Clic Post-Cerca) ---
   if (localStorage.getItem(FLAG_NAME) === 'true') {
-    // LÍNIA CORREGIDA AMB \'
     console.log('🔄 S\'ha detectat que la cerca s\'ha activat, construint la superposició...');
     
     // Mostra notificació a l'usuari
@@ -277,7 +288,7 @@ javascript:(function clickeduMain() {
       <div style="font-size: 14px; opacity: 0.9;">Torna a <strong>clicar el bookmarklet</strong> un cop la pàgina s\'hagi recarregat per construir el mapa.</div>
     `;
     document.body.appendChild(instructionNotif);
-    // Nota: He mogut l'assignació d'estil aquí per estalviar espai al codi final del bookmarklet.
+
     Object.assign(instructionNotif.style, {
       position: 'fixed',
       top: '10px',
@@ -300,8 +311,8 @@ javascript:(function clickeduMain() {
     setTimeout(() => {
       instructionNotif.remove();
       searchBtn.click();
-      console.log("🔍 Espera una estona i Torna a CLICAR el bookmarklet.");
-    }, 3500);
+      console.log("🔍 Cerca activada. Torna a clicar el bookmarklet després de la recàrrega.");
+    }, 5000);
   } else {
     console.log("❌ No s'han trobat els elements del formulari de cerca.");
     localStorage.removeItem(FLAG_NAME); 
