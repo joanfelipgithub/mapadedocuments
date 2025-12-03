@@ -1,7 +1,7 @@
 javascript:(function clickeduMain() {
   // Noms de les claus a localStorage
-  const SCRIPT_NAME = 'clickeduScript'; // Ja no s'usa per emmagatzemar el codi, només per neteja
-  const FLAG_NAME = 'clickeduBuildOverlay'; // Flag per indicar que s'ha d'intentar construir
+  const SCRIPT_NAME = 'clickeduScript'; 
+  const FLAG_NAME = 'clickeduBuildOverlay'; 
 
   // --- 1. Neteja Inicial / Toggle (Primer Clic) ---
   const EXIST = document.getElementById("clickeduMapContainer");
@@ -15,9 +15,9 @@ javascript:(function clickeduMain() {
 
   console.log("⏳ Mapa ClickEdu: inicialitzant…");
 
-  // ----------------------------------------------------------------------
-  // --- Funció Principal: Construeix la Superposició a partir dels Resultats ---
-  // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// --- Funció Principal: Construeix la Superposició a partir dels Resultats ---
+// ----------------------------------------------------------------------
   function buildOverlay() {
     // Comprova si la superposició ja s'ha construït (important per l'Observer)
     if (document.getElementById("clickeduMapContainer")) {
@@ -105,8 +105,17 @@ javascript:(function clickeduMain() {
 
     // --- Construcció de la UI de Categories Plegables ---
     Object.keys(catMap).forEach(cat => {
-      const list = catMap[cat];
+      let list = catMap[cat];
       if (!list.length) return;
+        
+      // ORDENACIÓ: Ordena la llista alfabèticament pel text de l'element
+      list.sort((a, b) => {
+          const textA = a.text.toUpperCase();
+          const textB = b.text.toUpperCase();
+          if (textA < textB) return -1;
+          if (textA > textB) return 1;
+          return 0;
+      });
 
       // Capçalera plegable
       const head = document.createElement("div");
@@ -173,7 +182,7 @@ javascript:(function clickeduMain() {
     localStorage.removeItem(FLAG_NAME);
     return true;
   }
-  // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 
   // --- 2. Escenari: Intentar Construir (Segon Clic / Clic Post-Cerca) ---
   if (localStorage.getItem(FLAG_NAME) === 'true') {
