@@ -16,6 +16,22 @@ javascript:(function clickeduMain() {
 // ----------------------------------------------------------------------
 // --- Funció Principal: Construeix la Superposició a partir dels Resultats ---
 // ----------------------------------------------------------------------
+
+    // NOU: Funció per determinar la luminositat del color (per triar blanc o negre)
+    function getLuminosity(hex) {
+        // Converteix hex en r, g, b (0-255)
+        const r = parseInt(hex.substring(1, 3), 16);
+        const g = parseInt(hex.substring(3, 5), 16);
+        const b = parseInt(hex.substring(5, 7), 16);
+        
+        // Calcula la luminositat relativa (ITU-R BT.709 - una formula comuna)
+        const luminosity = (0.2126 * r) + (0.7152 * g) + (0.0722 * b); 
+        
+        // El llindar 150 (d'un màxim de 255) s'utilitza habitualment per a contrast
+        return luminosity > 150 ? 'black' : 'white';
+    }
+
+
   function buildOverlay() {
     // Comprova si la superposició ja s'ha construït (important per l'Observer)
     if (document.getElementById("clickeduMapContainer")) {
@@ -60,7 +76,6 @@ javascript:(function clickeduMain() {
     cats.push("Altres");
     cats.forEach(c => catMap[c] = []);
     
-    // NOU: Mapa per rastrejar URLs ja vistes
     const uniqueUrls = new Map(); 
 
     rows.forEach(a => {
@@ -161,6 +176,11 @@ javascript:(function clickeduMain() {
         const l = t.match(/^[^ _]+/) ? t.match(/^[^ _]+/)[0] : t;
         const btn = document.createElement("div");
         btn.innerText = l;
+        
+        // Generació de color aleatori
+        const hex = "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        // Obtenció del color del text basat en la luminositat
+        const textColor = getLuminosity(hex);
         
         Object.assign(btn.style, {
           width: "127px",
@@ -168,8 +188,8 @@ javascript:(function clickeduMain() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#" + Math.floor(Math.random()*16777215).toString(16),
-          color: "white",
+          background: hex, // ÚS DEL COLOR ALEATORI GENERAT
+          color: textColor, // ÚS DEL COLOR DE TEXT DETERMINAT
           fontWeight: "bold",
           fontSize: "14px",
           borderRadius: "10px",
