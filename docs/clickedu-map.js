@@ -83,7 +83,6 @@ javascript:(function clickeduMain() {
                 cursor: 'pointer'
             });
 
-            // Afegir text blanc o negre per contrast
             if (color === '#FFFFFF') {
                 colorBtn.style.border = '1px solid #000';
             }
@@ -117,7 +116,6 @@ javascript:(function clickeduMain() {
                 document.removeEventListener('click', closePalette, true);
             }
         }
-        // Utilitzem 'true' (captura) per assegurar-nos que detecta el clic abans que el body
         setTimeout(() => document.addEventListener('click', closePalette, true), 10); 
     }
 
@@ -217,7 +215,20 @@ javascript:(function clickeduMain() {
             menu.style.display = 'none';
         }
         
-        document.addEventListener('click', hideMenu);
+        // Assegurar que un clic fora tanca el menú (i la paleta si està oberta)
+        function globalClose(e) {
+            const existingPalette = document.getElementById('colorPaletteMenu');
+            // Si el clic no és al botó, ni al menú, ni a la paleta, tanca tot
+            if (e.target !== btnElement && !menu.contains(e.target) && (!existingPalette || !existingPalette.contains(e.target))) {
+                hideMenu();
+                if (existingPalette) existingPalette.remove();
+                document.removeEventListener('click', globalClose, true);
+            }
+        }
+        // Activar tancament global amb captura (true) per prioritat
+        setTimeout(() => document.addEventListener('click', globalClose, true), 10);
+        
+        // Evita el tancament del menú natiu del navegador
         document.addEventListener('contextmenu', (e) => {
             if (e.target !== btnElement) hideMenu();
         });
@@ -239,6 +250,10 @@ javascript:(function clickeduMain() {
             hideMenu();
         };
         menu.appendChild(favItem);
+        
+        // --- Separador ---
+        menu.appendChild(document.createElement('hr')).style.margin = '5px 0';
+
 
         // Opció 2: Canviar Fons
         const bgItem = document.createElement('div');
@@ -247,7 +262,7 @@ javascript:(function clickeduMain() {
         bgItem.onmouseover = () => bgItem.style.background = '#eee';
         bgItem.onmouseout = () => bgItem.style.background = 'white';
         bgItem.onclick = (e) => {
-            e.stopPropagation(); // Evita que es tanqui el menú principal
+            e.stopPropagation(); 
             openColorPalette('background', btnElement, text, hideMenu);
         };
         menu.appendChild(bgItem);
@@ -259,10 +274,37 @@ javascript:(function clickeduMain() {
         textColorItem.onmouseover = () => textColorItem.style.background = '#eee';
         textColorItem.onmouseout = () => textColorItem.style.background = 'white';
         textColorItem.onclick = (e) => {
-            e.stopPropagation(); // Evita que es tanqui el menú principal
+            e.stopPropagation(); 
             openColorPalette('color', btnElement, text, hideMenu);
         };
         menu.appendChild(textColorItem);
+        
+        // --- Separador ---
+        menu.appendChild(document.createElement('hr')).style.margin = '5px 0';
+        
+        // Opció 4: Torna al format original (RESET)
+        const resetItem = document.createElement('div');
+        Object.assign(resetItem.style, { padding: '5px 10px', fontWeight: 'bold' });
+        resetItem.textContent = "🔄 Torna a l'Original";
+        resetItem.onmouseover = () => resetItem.style.background = '#fcc'; // Fons vermell clar al passar el ratolí
+        resetItem.onmouseout = () => resetItem.style.background = 'white';
+        resetItem.onclick = () => {
+            // 1. Eliminar la configuració de localStorage
+            delete docConfigs[text];
+            saveConfigs();
+            
+            // 2. Aplicar colors per defecte al botó
+            btnElement.style.background = DEFAULT_BG;
+            btnElement.style.color = DEFAULT_TEXT;
+            
+            alert(`Configuració de "${text.match(/^[^ _]+/)[0]}" restablerta a l'original. Recarrega l'Overlay si vols veure canvis a la llista de Favorits.`);
+            
+            // 3. Tancar menú i paleta (si està oberta)
+            hideMenu();
+            const existingPalette = document.getElementById('colorPaletteMenu');
+            if (existingPalette) existingPalette.remove();
+        };
+        menu.appendChild(resetItem);
 
         return menu;
     }
@@ -384,7 +426,6 @@ javascript:(function clickeduMain() {
         btn.addEventListener('contextmenu', (e) => {
             e.preventDefault(); 
             
-            // Tanca la paleta de colors si està oberta
             const existingPalette = document.getElementById('colorPaletteMenu');
             if (existingPalette) existingPalette.remove();
             
