@@ -184,7 +184,8 @@ javascript:(function clickeduMain() {
 
   // --- 2. Escenari: Intentar Construir (Segon Clic / Clic Post-Cerca) ---
   if (localStorage.getItem(FLAG_NAME) === 'true') {
-    console.log('🔄 S'ha detectat que la cerca s'ha activat, construint la superposició...');
+    // LÍNIA CORREGIDA AMB \'
+    console.log('🔄 S\'ha detectat que la cerca s\'ha activat, construint la superposició...');
     
     // Mostra notificació a l'usuari
     const notification = document.createElement('div');
@@ -273,8 +274,10 @@ javascript:(function clickeduMain() {
     const instructionNotif = document.createElement('div');
     instructionNotif.innerHTML = `
       <div style="font-size: 16px; margin-bottom: 8px;">🔍 <strong>Activació de Cerca...</strong></div>
-      <div style="font-size: 14px; opacity: 0.9;">Torna a <strong>clicar el bookmarklet</strong> un cop la pàgina s'hagi recarregat per construir el mapa.</div>
+      <div style="font-size: 14px; opacity: 0.9;">Torna a <strong>clicar el bookmarklet</strong> un cop la pàgina s\'hagi recarregat per construir el mapa.</div>
     `;
+    document.body.appendChild(instructionNotif);
+    // Nota: He mogut l'assignació d'estil aquí per estalviar espai al codi final del bookmarklet.
     Object.assign(instructionNotif.style, {
       position: 'fixed',
       top: '10px',
@@ -290,16 +293,15 @@ javascript:(function clickeduMain() {
       maxWidth: '400px',
       textAlign: 'center'
     });
-    document.body.appendChild(instructionNotif);
-    
+    
     // Injecta '_' i clica el botó amb un retard adequat
     input.value = "_";
     
     setTimeout(() => {
-      instructionNotif.remove(); // Neteja la notificació abans de clicar per a una transició més neta
+      instructionNotif.remove();
       searchBtn.click();
       console.log("🔍 Cerca activada. Torna a clicar el bookmarklet després de la recàrrega.");
-    }, 1500); // Reduït el temps a 1.5s (suficient per llegir)
+    }, 1500);
   } else {
     console.log("❌ No s'han trobat els elements del formulari de cerca.");
     localStorage.removeItem(FLAG_NAME); 
