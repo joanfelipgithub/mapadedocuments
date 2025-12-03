@@ -26,6 +26,7 @@ javascript:(() => {
     if (!rows.length || loaded) return;
 
     loaded = true;
+    observer.disconnect(); // Stop observing once we found results
     console.log("✔ Search results detected:", rows.length);
 
     // --- Overlay container ---
@@ -147,13 +148,34 @@ javascript:(() => {
           textAlign: "center",
           overflow: "hidden"
         });
-        btn.addEventListener("click", e => { e.stopPropagation(); a.click(); });
+        btn.addEventListener("click", e => { 
+          e.stopPropagation(); 
+          console.log("🖱️ Clicked:", t);
+          a.click(); 
+        });
         content.appendChild(btn);
       });
     });
 
-    console.log("🗺️ ClickEdu overlay ready (all foldables collapsed).");
+    console.log("🗺️ ClickEdu overlay ready!");
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
+  
+  // Safety: check if results already exist (in case we're already on results page)
+  setTimeout(() => {
+    const existingRows = document.querySelectorAll(
+      "table tbody tr td table tbody tr td:nth-child(3) div span strong a"
+    );
+    if (existingRows.length && !loaded) {
+      console.log("⚡ Results already present, triggering observer manually");
+      observer.disconnect();
+      observer.takeRecords();
+      const rows = Array.from(existingRows);
+      if (rows.length) {
+        const evt = new MutationEvent();
+        observer.callback([evt]);
+      }
+    }
+  }, 100);
 })();
