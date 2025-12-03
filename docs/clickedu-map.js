@@ -9,16 +9,20 @@ javascript:(()=>{
   
   // Main function to build the UI
   function buildUI() {
+    console.log('buildUI called, looking for results...');
     let loaded = false;
+    let attempts = 0;
     
     const checkResults = setInterval(() => {
+      attempts++;
       const rows = Array.from(document.querySelectorAll("table tbody tr td table tbody tr td:nth-child(3) div span strong a"));
+      console.log('Attempt', attempts, '- Found', rows.length, 'rows');
       
       if (rows.length && !loaded) {
         loaded = true;
         clearInterval(checkResults);
+        console.log('Building UI with', rows.length, 'items');
         
-        // Clean up flag
         localStorage.removeItem('clickeduActive');
         
         const container = document.createElement("div");
@@ -139,57 +143,66 @@ javascript:(()=>{
           });
         });
       }
+      
+      if (attempts > 40) {
+        clearInterval(checkResults);
+        console.log('Timeout: No results found after 40 attempts');
+      }
     }, 300);
   }
   
-  // Check if we're on the results page after reload
+  // Check if we should auto-run (after page navigation)
   if (localStorage.getItem('clickeduActive') === 'true') {
+    console.log('Auto-running after page load');
     buildUI();
     return;
   }
   
-  // Otherwise, trigger the search
+  // First time running - trigger the search
+  console.log('First run - setting up search trigger');
   localStorage.setItem('clickeduActive', 'true');
   
-  // Store this code to re-run after page load
-  const rerunCode = `
-    (function() {
-      if (localStorage.getItem('clickeduActive') === 'true') {
-        ${buildUI.toString()}
+  // Set up listener for page changes (both reload and AJAX)
+  const observer = new MutationObserver(() => {
+    if (localStorage.getItem('clickeduActive') === 'true') {
+      const rows = document.querySelectorAll("table tbody tr td table tbody tr td:nth-child(3) div span strong a");
+      if (rows.length > 0) {
+        console.log('Results appeared via AJAX!');
+        observer.disconnect();
         buildUI();
       }
-    })();
-  `;
+    }
+  });
   
-  localStorage.setItem('clickeduRerun', rerunCode);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
   
-  // Inject auto-runner for after page load
-  const autoRunner = document.createElement('script');
-  autoRunner.textContent = `
-    window.addEventListener('load', function() {
-      const code = localStorage.getItem('clickeduRerun');
-      if (code) {
-        localStorage.removeItem('clickeduRerun');
-        eval(code);
-      }
-    });
-  `;
-  document.head.appendChild(autoRunner);
-  
-  // Now perform the search
+  // Trigger the search
   const waitSearch = setInterval(() => {
     const input = document.querySelector("#p");
     const btn = document.querySelector("#frm_cercar table tbody tr td:nth-child(2) a");
     
     if (input && btn) {
       clearInterval(waitSearch);
-      console.log('Setting input value to _');
+      console.log('Found search elements');
+      console.log('Input element:', input);
+      console.log('Button element:', btn);
+      
       input.value = "_";
-      console.log('Clicking search button');
+      console.log('Set input value to: "_"');
+      console.log('Input value is now:', input.value);
       
       setTimeout(() => {
+        console.log('Clicking button...');
         btn.click();
-      }, 100);
+        console.log('Button clicked');
+      }, 200);
     }
-  }, 200);
+  }, 100);
+  
+  setTimeout(() => {
+    clearInterval(waitSearch);
+  }, 5000);
 })();
