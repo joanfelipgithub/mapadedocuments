@@ -215,20 +215,16 @@ javascript:(function clickeduMain() {
             menu.style.display = 'none';
         }
         
-        // Assegurar que un clic fora tanca el menú (i la paleta si està oberta)
         function globalClose(e) {
             const existingPalette = document.getElementById('colorPaletteMenu');
-            // Si el clic no és al botó, ni al menú, ni a la paleta, tanca tot
             if (e.target !== btnElement && !menu.contains(e.target) && (!existingPalette || !existingPalette.contains(e.target))) {
                 hideMenu();
                 if (existingPalette) existingPalette.remove();
                 document.removeEventListener('click', globalClose, true);
             }
         }
-        // Activar tancament global amb captura (true) per prioritat
         setTimeout(() => document.addEventListener('click', globalClose, true), 10);
         
-        // Evita el tancament del menú natiu del navegador
         document.addEventListener('contextmenu', (e) => {
             if (e.target !== btnElement) hideMenu();
         });
@@ -245,6 +241,12 @@ javascript:(function clickeduMain() {
         favItem.onclick = () => {
             docConfigs[text] = docConfigs[text] || {};
             docConfigs[text].favorite = !isFav;
+            
+            // Si el posem a NO favorit i no té cap personalització de color, esborrem la clau
+            if (!docConfigs[text].favorite && !docConfigs[text].background && !docConfigs[text].color) {
+                delete docConfigs[text];
+            }
+            
             saveConfigs();
             alert(`"${text.match(/^[^ _]+/)[0]}" ${isFav ? 'eliminat' : 'afegit'} a Favorits. Recarrega l'Overlay per actualitzar.`);
             hideMenu();
@@ -286,20 +288,51 @@ javascript:(function clickeduMain() {
         const resetItem = document.createElement('div');
         Object.assign(resetItem.style, { padding: '5px 10px', fontWeight: 'bold' });
         resetItem.textContent = "🔄 Torna a l'Original";
-        resetItem.onmouseover = () => resetItem.style.background = '#fcc'; // Fons vermell clar al passar el ratolí
+        resetItem.onmouseover = () => resetItem.style.background = '#fcc'; 
         resetItem.onmouseout = () => resetItem.style.background = 'white';
         resetItem.onclick = () => {
-            // 1. Eliminar la configuració de localStorage
-            delete docConfigs[text];
+            
+            // 1. Verificar si era favorit abans d'eliminar les claus de color
+            const wasFav = docConfigs[text] && docConfigs[text].favorite;
+            
+            // 2. Esborrar les claus de color
+            if (docConfigs[text]) {
+                delete docConfigs[text].background;
+                delete docConfigs[text].color;
+            }
+            
+            // 3. 🔑 CLAU: Si era favorit, cal assegurar-se que l'objecte existeixi i mantingui l'estat.
+            if (wasFav) {
+                docConfigs[text] = docConfigs[text] || {};
+                docConfigs[text].favorite = true;
+                
+                // Neteja l'objecte si només queda favorite:true
+                if (Object.keys(docConfigs[text]).length === 1 && docConfigs[text].favorite === true) {
+                    // No fem res, el deixem així.
+                }
+            } else {
+                // Si no era favorit i hem esborrat els colors (no n'hi havia), assegurem que la clau sencera s'esborra
+                if (docConfigs[text] && Object.keys(docConfigs[text]).length === 0) {
+                     delete docConfigs[text];
+                }
+            }
+            
             saveConfigs();
             
-            // 2. Aplicar colors per defecte al botó
+            // 4. Aplicar colors per defecte al botó (visual)
             btnElement.style.background = DEFAULT_BG;
             btnElement.style.color = DEFAULT_TEXT;
-            
-            alert(`Configuració de "${text.match(/^[^ _]+/)[0]}" restablerta a l'original. Recarrega l'Overlay si vols veure canvis a la llista de Favorits.`);
-            
-            // 3. Tancar menú i paleta (si està oberta)
+
+            // 5. Neteja la UI de favorits si ja no és favorit
+            if (!wasFav && btnElement.parentElement && btnElement.parentElement.parentElement && btnElement.parentElement.parentElement.innerText.includes('❤️ Favorits')) {
+                // Aquesta condició no hauria de passar mai si es fa bé, ja que si no és favorit no hauria de sortir a la llista.
+                btnElement.remove();
+                alert(`Configuració de "${text.match(/^[^ _]+/)[0]}" restablerta. El favorit ha estat eliminat visualment.`);
+            } else {
+                alert(`Colors de "${text.match(/^[^ _]+/)[0]}" restablerts a l'original. L'estat de favorit s'ha mantingut.`);
+            }
+
+            // 6. Tancar menú i paleta (si està oberta)
             hideMenu();
             const existingPalette = document.getElementById('colorPaletteMenu');
             if (existingPalette) existingPalette.remove();
@@ -374,6 +407,7 @@ javascript:(function clickeduMain() {
 
       // Contenidor de contingut (col·lapsat)
       const content = document.createElement("div");
+      content.id = `content-${cat}`; 
       Object.assign(content.style, {
         display: (cat === "❤️ Favorits") ? "grid" : "none", 
         gridTemplateColumns: "repeat(3,1fr)",
