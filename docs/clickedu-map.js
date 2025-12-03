@@ -1,8 +1,5 @@
-// ===============
-// Clickedu MAP v1
-// ===============
-
 (function () {
+    // --- toggle map ---
     const EXISTING = document.getElementById("clickeduMapContainer");
     if (EXISTING) {
         EXISTING.remove();
@@ -10,121 +7,154 @@
         return;
     }
 
-    console.log("🗺️ Building Clickedu Map…");
+    console.log("🗺️ Building Clickedu Categorized Map…");
 
-    // --- 1. FIND ALL AUTHORIZED LINKS ---
-    const rows = document.querySelectorAll(
+    // --- 1. Find all authorized links ---
+    const rows = Array.from(document.querySelectorAll(
         "table tbody tr td table tbody tr td:nth-child(3) div span strong a"
-    );
+    ));
 
     if (!rows.length) {
         console.warn("⚠ No document links found.");
         return;
     }
 
-    // --- 2. BUILD MAP CONTAINER ---
-    const container = document.createElement("div");
-    container.id = "clickeduMapContainer";
-    Object.assign(container.style, {
-        position: "fixed",
-        top: "20px",
-        right: "20px",
-        width: "420px",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        padding: "12px",
-        background: "white",
-        borderRadius: "12px",
-        boxShadow: "0 0 12px rgba(0,0,0,0.25)",
-        zIndex: "999999",
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: "10px",
+    // --- 2. Categories ---
+    const categories = [
+        "EAFP","EA","GA","POC","GRL","GQ","EAESO","PO","GC","EABAT","SOR","Gestio","GRH"
+    ];
+    const categoryMap = {};
+    categories.push("Altres"); // catch-all
+
+    categories.forEach(c => categoryMap[c] = []);
+
+    // --- 3. Assign links to categories ---
+    rows.forEach(a => {
+        const text = a.innerText.trim();
+        if (/obsolet/i.test(text)) return; // ignore obsolete
+
+        // extract _CODE_ from text
+        const match = text.match(/_(.*?)_/);
+        let cat = "Altres";
+        if (match && categories.includes(match[1])) cat = match[1];
+
+        categoryMap[cat].push({element:a,text});
     });
 
+    // --- 4. Build container ---
+    const container = document.createElement("div");
+    container.id = "clickeduMapContainer";
+    Object.assign(container.style,{
+        position:"fixed",
+        top:"20px",
+        right:"20px",
+        width:"480px",
+        maxHeight:"90vh",
+        overflowY:"auto",
+        padding:"12px",
+        background:"white",
+        borderRadius:"12px",
+        boxShadow:"0 0 12px rgba(0,0,0,0.25)",
+        zIndex:"999999",
+    });
     document.body.appendChild(container);
 
-    // --- 3. STRIP OFFICE VIEWER ---
-    function stripOfficeViewer(url) {
+    // --- 5. Strip Office Viewer ---
+    function stripOfficeViewer(url){
         try {
             const u = new URL(url);
-            if (u.hostname.includes("view.officeapps.live.com")) {
+            if(u.hostname.includes("view.officeapps.live.com")){
                 const direct = u.searchParams.get("src");
-                if (direct) return decodeURIComponent(direct);
+                if(direct) return decodeURIComponent(direct);
             }
-        } catch (e) {}
+        } catch(e){}
         return url;
     }
 
-    // --- 4. BLOCK OFFICE VIEWER ---
-    document.addEventListener(
-        "click",
-        function (ev) {
-            const a = ev.target.closest("a");
-            if (!a) return;
+    // --- 6. Block Office Viewer ---
+    document.addEventListener("click",function(ev){
+        const a = ev.target.closest("a");
+        if(!a) return;
+        const href = a.href;
+        const direct = stripOfficeViewer(href);
+        if(direct !== href){
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+            const dl=document.createElement("a");
+            dl.href=direct;
+            dl.download="";
+            document.body.appendChild(dl);
+            dl.click();
+            dl.remove();
+            console.log("🚫 OfficeViewer blocked → downloading:",direct);
+        }
+    },true);
 
-            const href = a.href;
-            const direct = stripOfficeViewer(href);
+    // --- 7. Build foldable categories with buttons ---
+    Object.keys(categoryMap).forEach(cat=>{
+        const links = categoryMap[cat];
+        if(!links.length) return;
 
-            if (direct !== href) {
-                ev.preventDefault();
-                ev.stopImmediatePropagation();
+        // foldable header
+        const header = document.createElement("div");
+        header.innerText = cat + ` (${links.length})`;
+        Object.assign(header.style,{
+            fontWeight:"bold",
+            cursor:"pointer",
+            margin:"6px 0",
+            padding:"4px 8px",
+            background:"#ddd",
+            borderRadius:"6px"
+        });
+        container.appendChild(header);
 
-                const dl = document.createElement("a");
-                dl.href = direct;
-                dl.download = "";
-                document.body.appendChild(dl);
-                dl.click();
-                dl.remove();
+        // content container
+        const content = document.createElement("div");
+        content.style.display="none";
+        content.style.gridTemplateColumns="repeat(3, 1fr)";
+        content.style.gap="10px";
+        content.style.marginBottom="6px";
+        content.style.display="grid";
+        container.appendChild(content);
 
-                console.log("🚫 OfficeViewer blocked → downloading:", direct);
-            }
-        },
-        true
-    );
-
-    // --- 5. CREATE SQUARE BUTTONS ---
-    rows.forEach((a) => {
-        const textFull = a.innerText.trim();
-
-        // ignore obsolete items
-        if (/obsolet/i.test(textFull)) return;
-
-        // extract prefix until space or underscore
-        const match = textFull.match(/^[^ _]+/);
-        const label = (match ? match[0] : textFull).substring(0, 8);
-
-        const url = a.href;
-
-        const btn = document.createElement("div");
-        btn.innerText = label;
-        Object.assign(btn.style, {
-            width: "127px",
-            height: "54px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#" + Math.floor(Math.random() * 16777215).toString(16),
-            color: "white",
-            fontWeight: "bold",
-            fontSize: "14px",
-            borderRadius: "10px",
-            cursor: "pointer",
-            userSelect: "none",
-            textAlign: "center",
-            overflow: "hidden",
+        header.addEventListener("click",()=>{ 
+            content.style.display = content.style.display==="none"?"grid":"none"; 
         });
 
-        // simulate REAL link click → keeps permissions
-        btn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            console.log("▶ Simulated click for:", url);
-            a.click();
-        });
+        // add buttons
+        links.forEach(item=>{
+            const a = item.element;
+            const textFull = item.text;
+            const matchLabel = textFull.match(/^[^ _]+/);
+            const label = matchLabel?matchLabel[0]:textFull;
 
-        container.appendChild(btn);
+            const btn = document.createElement("div");
+            btn.innerText=label;
+            Object.assign(btn.style,{
+                width:"127px",
+                height:"54px",
+                display:"flex",
+                alignItems:"center",
+                justifyContent:"center",
+                background:"#"+Math.floor(Math.random()*16777215).toString(16),
+                color:"white",
+                fontWeight:"bold",
+                fontSize:"14px",
+                borderRadius:"10px",
+                cursor:"pointer",
+                userSelect:"none",
+                textAlign:"center",
+                overflow:"hidden"
+            });
+
+            btn.addEventListener("click",e=>{
+                e.stopPropagation();
+                a.click();
+            });
+
+            content.appendChild(btn);
+        });
     });
 
-    console.log("✔ Map generated.");
+    console.log("✔ Categorized map generated.");
 })();
-
