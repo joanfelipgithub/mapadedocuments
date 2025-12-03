@@ -137,12 +137,13 @@ javascript:(function clickeduMain() {
         });
 
         const isFav = docConfigs[text] && docConfigs[text].favorite;
-        const favText = isFav ? "💔 Eliminar de Favorits" : "❤️ Afegir a Favorits";
+        // 🚨 AJUST DE TEXT APLICAT AQUÍ
+        const favText = isFav ? "💔 Ja no és favorit" : "❤️ Afegir a Favorits";
         
         // Opció 1: Favorits
         const favItem = document.createElement('div');
         Object.assign(favItem.style, { padding: '5px 10px' });
-        favItem.textContent = favText;
+        favItem.textContent = favText; 
         favItem.onmouseover = () => favItem.style.background = '#eee';
         favItem.onmouseout = () => favItem.style.background = 'white';
         favItem.onclick = () => {
@@ -162,7 +163,6 @@ javascript:(function clickeduMain() {
         bgItem.onmouseout = () => bgItem.style.background = 'white';
         bgItem.onclick = () => {
             const newColor = prompt("Introdueix el nou color de fons (HEX, e.g. #FF0000):", btnElement.style.backgroundColor);
-            // Comprovació simple de format HEX (opcionalment, es podria fer una validació més estricta)
             if (newColor && /^#[0-9A-F]{6}$/i.test(newColor)) {
                 btnElement.style.background = newColor;
                 docConfigs[text] = docConfigs[text] || {};
